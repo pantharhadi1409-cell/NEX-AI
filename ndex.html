@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Secure Core</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+        :root {
+            /* COLORS */
+            --bg-dark: #020204;
+            --locked-color: #ff9f1c; /* Amber/Orange */
+            --unlocked-color: #00f0ff; /* Cyber Cyan */
+            --listening-color: #ff003c; /* Red */
+            --speaking-color: #39ff14; /* Neon Green */
+            
+            /* Current State Color (Changes via JS) */
+            --current-state-color: var(--locked-color);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000 100%);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* --- GRID BACKGROUND --- */
+        .bg-grid {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(500px) rotateX(60deg);
+            top: -50%;
+            z-index: -1;
+            animation: grid-move 20s linear infinite;
+        }
+
+        @keyframes grid-move {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(40px); }
+        }
+
+        /* --- CORE INTERFACE --- */
+        .reactor-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.5s ease;
+        }
+
+        /* The Rings */
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--current-state-color);
+            border-bottom-color: var(--current-state-color);
+            box-shadow: 0 0 15px var(--current-state-color), inset 0 0 15px var(--current-state-color);
+            transition: all 0.8s ease;
+        }
+
+        .ring-1 { width: 100%; height: 100%; animation: spin 8s linear infinite; opacity: 0.3; }
+        .ring-2 { width: 80%; height: 80%; animation: spin-reverse 12s linear infinite; border-left-color: transparent; border-right-color: transparent; }
+        .ring-3 { width: 60%; height: 60%; animation: spin 5s linear infinite; border: 2px dashed rgba(255,255,255,0.2); border-color: var(--current-state-color); opacity: 0.5; }
+
+        /* The Core (Orb) */
+        .core {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, var(--current-state-color) 40%, transparent 80%);
+            box-shadow: 0 0 50px var(--current-state-color);
+            z-index: 10;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        /* Inner detail */
+        .core::after {
+            content: '';
+            position: absolute;
+            top: 20%; left: 20%; width: 60%; height: 60%;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            filter: blur(5px);
+        }
+
+        /* Lock Icon */
+        .lock-icon {
+            position: absolute;
+            z-index: 20;
+            font-size: 2rem;
+            color: #000;
+            background: var(--current-state-color);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            transition: all 0.5s;
+        }
+
+        /* --- STATE MODIFIERS --- */
+
+        /* Listening State */
+        body.listening .ring { animation-duration: 2s; border-color: var(--listening-color); box-shadow: 0 0 20px var(--listening-color); }
+        body.listening .core { background: radial-gradient(circle, #fff 0%, var(--listening-color) 50%, transparent 90%); box-shadow: 0 0 80px var(--listening-color); animation: core-pulse 1s infinite; }
+        body.listening .lock-icon { background: var(--listening-color); }
+
+        /* Speaking State */
+        body.speaking .ring { border-color: var(--speaking-color); box-shadow: 0 0 20px var(--speaking-color); }
+        body.speaking .core { background: radial-gradient(circle, #fff 0%, var(--speaking-color) 50%, transparent 90%); box-shadow: 0 0 80px var(--speaking-color); animation: core-shake 0.2s infinite; }
+        body.speaking .lock-icon { background: var(--speaking-color); opacity: 0; }
+
+        /* Unlocked State */
+        body.unlocked { --current-state-color: var(--unlocked-color); }
+        body.unlocked .lock-icon { opacity: 0; pointer-events: none; transform: scale(0); }
+
+        /* --- TEXT & UI --- */
+        .status-panel {
+            margin-top: 4rem;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 3rem;
+            margin: 0;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px var(--current-state-color);
+            transition: color 0.5s;
+        }
+
+        .sub-text {
+            font-size: 1rem;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        /* Glitch Animation for Error */
+        .glitch-text {
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+            color: var(--listening-color) !important;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
+        }
+
+        /* --- START OVERLAY --- */
+        #start-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s;
+        }
+
+        .btn-start {
+            background: transparent;
+            border: 2px solid var(--locked-color);
+            color: var(--locked-color);
+            padding: 1rem 3rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-start:hover {
+            background: var(--locked-color);
+            color: #000;
+            box-shadow: 0 0 30px var(--locked-color);
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+        @keyframes core-pulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } }
+        @keyframes core-shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay">
+        <h1 style="font-size: 2rem; margin-bottom: 2rem; color:white;">SECURE TERMINAL</h1>
+        <button class="btn-start" onclick="initSystem()">Initialize</button>
+    </div>
+
+    <!-- Main UI -->
+    <div class="reactor-container" id="trigger">
+        <div class="ring ring-1"></div>
+        <div class="ring ring-2"></div>
+        <div class="ring ring-3"></div>
+        <div class="core"></div>
+        <div class="lock-icon">🔒</div>
+    </div>
+
+    <div class="status-panel">
+        <h1 id="main-text">SYSTEM LOCKED</h1>
+        <div class="sub-text" id="sub-text">Tap orb to authorize</div>
+    </div>
+
+    <script>
+        // CONSTANTS
+        const ACCESS_CODE = "hadi";
+        const ELEMENTS = {
+            overlay: document.getElementById('start-overlay'),
+            mainText: document.getElementById('main-text'),
+            subText: document.getElementById('sub-text'),
+            trigger: document.getElementById('trigger')
+        };
+
+        // STATE
+        let recognition;
+        let synth = window.speechSynthesis;
+        let voices = [];
+        let isListening = false;
+        let isUnlocked = false;
+
+        // --- INITIALIZATION ---
+        function initSystem() {
+            ELEMENTS.overlay.style.opacity = '0';
+            setTimeout(() => ELEMENTS.overlay.style.display = 'none', 1000);
+
+            // Load Voices
+            populateVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoices;
+            }
+
+            // Setup Speech Recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    document.body.classList.add('listening');
+                    document.body.classList.remove('speaking');
+                    
+                    if(!isUnlocked) {
+                        ELEMENTS.mainText.textContent = "AWAITING PASSPHRASE";
+                        ELEMENTS.subText.textContent = "Listening...";
+                    } else {
+                        ELEMENTS.mainText.textContent = "LISTENING";
+                        ELEMENTS.subText.textContent = "Speak command";
+                    }
+                };
+
+                recognition.onend = () => {
+                    isListening = false;
+                    document.body.classList.remove('listening');
+                    
+                    if(!isUnlocked) {
+                        ELEMENTS.mainText.textContent = "SYSTEM LOCKED";
+                        ELEMENTS.subText.textContent = "Access denied";
+                        ELEMENTS.mainText.classList.remove('glitch-text');
+                    } else {
+                        ELEMENTS.mainText.textContent = "READY";
+                        ELEMENTS.subText.textContent = "Tap to speak";
+                    }
+                };
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    processInput(transcript);
+                };
+
+                recognition.onerror = (event) => {
+                    isListening = false;
+                    document.body.classList.remove('listening');
+                };
+            }
+
+            // Interaction
+            ELEMENTS.trigger.addEventListener('click', () => {
+                if(synth.speaking) {
+                    synth.cancel();
+                    document.body.classList.remove('speaking');
+                    ELEMENTS.subText.textContent = "Stopped";
+                } else if (!isListening) {
+                    try { recognition.start(); } catch(e){}
+                }
+            });
+        }
+
+        // --- LOGIC ---
+        function processInput(input) {
+            if (!isUnlocked) {
+                // CHECK PASSWORD
+                if (input.toLowerCase().includes(ACCESS_CODE)) {
+                    performUnlock();
+                } else {
+                    performDeny();
+                }
+            } else {
+                // NORMAL AI
+                processAI(input);
+            }
+        }
+
+        function performUnlock() {
+            isUnlocked = true;
+            document.body.classList.add('unlocked');
+            ELEMENTS.mainText.textContent = "ACCESS GRANTED";
+            ELEMENTS.subText.textContent = "Welcome back, Hadi";
+            ELEMENTS.mainText.style.color = "var(--unlocked-color)";
+            
+            speak("Identity verified. Security systems disabled. Welcome back, Hadi.");
+        }
+
+        function performDeny() {
+            ELEMENTS.mainText.textContent = "ACCESS DENIED";
+            ELEMENTS.subText.textContent = "Incorrect Code";
+            ELEMENTS.mainText.classList.add('glitch-text');
+            
+            setTimeout(() => {
+                speak("Access denied. Incorrect identification code.");
+            }, 200);
+        }
+
+        // --- SPEECH ENGINE ---
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.volume = 1;
+            utterThis.rate = 1.05; // Slightly faster for "tech" feel
+            utterThis.pitch = 0.9;  // Slightly lower for depth
+
+            // Select best voice (prefer robotic/male for sci-fi feel)
+            const preferredVoice = voices.find(v => v.name.includes("Google US English")) || 
+                                   voices.find(v => v.name.includes("Microsoft David")) ||
+                                   voices.find(v => v.name.includes("Samantha")) ||
+                                   voices[0];
+            if (preferredVoice) utterThis.voice = preferredVoice;
+
+            utterThis.onstart = () => {
+                document.body.classList.add('speaking');
+                ELEMENTS.subText.textContent = "System Speaking...";
+            };
+
+            utterThis.onend = () => {
+                document.body.classList.remove('speaking');
+                if(!isUnlocked) {
+                    ELEMENTS.mainText.textContent = "SYSTEM LOCKED";
+                    ELEMENTS.mainText.style.color = "var(--locked-color)";
+                    ELEMENTS.subText.textContent = "Tap orb to retry";
+                } else {
+                    ELEMENTS.mainText.textContent = "READY";
+                    ELEMENTS.subText.textContent = "Tap to speak";
+                }
+            };
+
+            synth.speak(utterThis);
+        }
+
+        function populateVoices() {
+            voices = synth.getVoices();
+        }
+
+        // --- STANDARD RESPONSES ---
+        function processAI(input) {
+            const txt = input.toLowerCase();
+            let reply = "";
+
+            if (txt.includes("time")) reply = "Current system time is " + new Date().toLocaleTimeString();
+            else if (txt.includes("date")) reply = "Today's date is " + new Date().toLocaleDateString();
+            else if (txt.includes("hello") || txt.includes("hi")) reply = "Greetings Hadi. Systems are online.";
+            else if (txt.includes("who are you")) reply = "I am Nexus, your virtual interface.";
+            else if (txt.includes("shutdown")) reply = "I cannot self-terminate.";
+            else reply = "Command received: " + input;
+
+            ELEMENTS.mainText.textContent = "PROCESSING";
+            setTimeout(() => speak(reply), 300);
+        }
+
+    </script>
+</body>
+</html>
